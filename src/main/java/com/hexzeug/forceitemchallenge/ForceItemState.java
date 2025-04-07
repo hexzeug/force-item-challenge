@@ -4,12 +4,9 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.random.Random;
 import net.minecraft.world.PersistentState;
 import org.apache.commons.compress.utils.Lists;
 
@@ -107,8 +104,8 @@ public class ForceItemState extends PersistentState {
             return challenge;
         }
 
-        public boolean isChallenge(ItemStack itemStack) {
-            return ItemStack.areItemsAndComponentsEqual(challenge, itemStack);
+        public void markComplete() {
+            markComplete(challenge);
         }
 
         public void markComplete(ItemStack challenge) {
@@ -116,12 +113,8 @@ public class ForceItemState extends PersistentState {
             completedChallenges.add(challenge);
         }
 
-        public void newChallenge(Random random) {
-            markComplete(challenge);
-            // TODO: real implementation of challenge generation
-            int max = Registries.ITEM.size();
-            int next = random.nextInt(max);
-            challenge = new ItemStack(Registries.ITEM.get(next));
+        public void setChallenge(ItemStack challenge) {
+            this.challenge = challenge;
         }
     }
 }
