@@ -13,14 +13,21 @@ import org.apache.commons.compress.utils.Lists;
 import java.util.*;
 
 public class ForceItemState extends PersistentState {
+    private static final String STATE_ID = "force_item";
+    private static final String DURATION_TAG = "duration";
+    private static final String RUNNING_TAG = "running";
     private static final String PLAYERS_TAG = "players";
+    public long duration;
+    public boolean running;
     private final Map<UUID, PlayerData> players;
 
     public ForceItemState() {
+        this.duration = 72000; // 1 hour in ticks
+        this.running = false;
         this.players = new HashMap<>();
     }
 
-    public static ForceItemState getServerState(MinecraftServer server) {
+    public static ForceItemState getState(MinecraftServer server) {
         PersistentState.Type<ForceItemState> type = new Type<>(
                 ForceItemState::new,
                 ForceItemState::stateFromNbt,
@@ -29,13 +36,15 @@ public class ForceItemState extends PersistentState {
         ForceItemState state = server
                 .getOverworld()
                 .getPersistentStateManager()
-                .getOrCreate(type, "force_item");
+                .getOrCreate(type, STATE_ID);
         state.markDirty();
         return state;
     }
 
     public static ForceItemState stateFromNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registries) {
         ForceItemState state = new ForceItemState();
+        state.duration = nbt.getLong(DURATION_TAG);
+        state.running = nbt.getBoolean(RUNNING_TAG);
         NbtCompound playersNbt = nbt.getCompound(PLAYERS_TAG);
         playersNbt.getKeys().forEach((uuidString) -> {
             UUID uuid = UUID.fromString(uuidString);
@@ -47,10 +56,12 @@ public class ForceItemState extends PersistentState {
 
     @Override
     public NbtCompound writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registries) {
+        nbt.putLong(DURATION_TAG, duration);
+        nbt.putBoolean(RUNNING_TAG, running);
         NbtCompound playersNbt = new NbtCompound();
-        this.players.forEach((uuid, playerData) -> {
-            playersNbt.put(uuid.toString(), playerData.toNbt(registries));
-        });
+        this.players.forEach((uuid, playerData) ->
+                playersNbt.put(uuid.toString(), playerData.toNbt(registries))
+        );
         nbt.put(PLAYERS_TAG, playersNbt);
         return nbt;
     }
@@ -93,9 +104,7 @@ public class ForceItemState extends PersistentState {
                 nbt.put(CHALLENGE_TAG, challenge.toNbt(registries));
             }
             NbtList completedNbt = new NbtList();
-            completedChallenges.forEach(itemStack -> {
-                completedNbt.add(itemStack.toNbt(registries));
-            });
+            completedChallenges.forEach(itemStack -> completedNbt.add(itemStack.toNbt(registries)));
             nbt.put(COMPLETED_TAG, completedNbt);
             return nbt;
         }

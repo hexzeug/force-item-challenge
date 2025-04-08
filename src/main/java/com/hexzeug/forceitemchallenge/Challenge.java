@@ -23,7 +23,7 @@ public class Challenge {
     private Challenge(ServerPlayerEntity player) {
         this.player = player;
         this.server = Objects.requireNonNull(player.getServer());
-        this.forceItemState = ForceItemState.getServerState(server);
+        this.forceItemState = ForceItemState.getState(server);
         this.playerData = forceItemState.getPlayerData(player);
         this.random = server.getOverworld().getOrCreateRandom(Identifier.of(
                 ForceItemChallenge.MOD_NAMESPACE,

@@ -1,5 +1,6 @@
-package com.hexzeug.forceitemchallenge;
+package com.hexzeug.forceitemchallenge.command;
 
+import com.hexzeug.forceitemchallenge.Challenge;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.command.argument.*;
 import net.minecraft.server.command.ServerCommandSource;
@@ -41,9 +42,7 @@ public class SkipCommand {
 
     public static int execute(ServerCommandSource source, Collection<ServerPlayerEntity> players) {
         int amount = players.size();
-        players.forEach(player -> {
-            Challenge.ofPlayer(player).nextChallenge(false);
-        });
+        players.forEach(player -> Challenge.ofPlayer(player).nextChallenge(false));
         source.sendFeedback(
                 () -> Text.literal("Skipped challenges of %s players".formatted(amount)),
                 true

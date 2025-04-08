@@ -1,8 +1,11 @@
-package com.hexzeug.forceitemchallenge;
+package com.hexzeug.forceitemchallenge.command;
 
+import com.hexzeug.forceitemchallenge.ForceItemChallenge;
+import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
 import java.io.IOException;
@@ -24,7 +27,7 @@ public class NewCommand {
 
     public static int execute(MinecraftServer server) {
         new WorldRemoveThread(server).start();
-        return 0;
+        return Command.SINGLE_SUCCESS;
     }
 
     public static class WorldRemoveThread extends Thread {
@@ -38,9 +41,10 @@ public class NewCommand {
         @Override
         public void run() {
             Path levelDir = Path.of(server.getOverworld().getChunkManager().chunkLoadingManager.getSaveDir());
-            server.getPlayerManager().getPlayerList().forEach(player ->
-                    player.networkHandler.disconnect(Text.literal("Creating new world. Please rejoin."))
-            );
+            for (int i = 0; i < server.getPlayerManager().getPlayerList().size(); i++) {
+                ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(i);
+                player.networkHandler.disconnect(Text.literal("Creating new world. Please rejoin."));
+            }
             ForceItemChallenge.LOGGER.info("Stopping server...");
             server.stop(true);
             ForceItemChallenge.LOGGER.info("Server stopped. Deleting world...");
