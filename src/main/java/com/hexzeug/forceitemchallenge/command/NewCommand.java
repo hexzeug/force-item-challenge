@@ -7,6 +7,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,12 +22,16 @@ public class NewCommand {
         dispatcher.register(
                 literal("new")
                         .requires(source -> source.hasPermissionLevel(2))
-                        .executes((context) -> execute(context.getSource().getServer()))
+                        .executes(context -> execute(context.getSource()))
         );
     }
 
-    public static int execute(MinecraftServer server) {
-        new WorldRemoveThread(server).start();
+    public static int execute(ServerCommandSource source) {
+        source.sendFeedback(
+                () -> Text.literal("Starting new game: Shutting server down and removing world"),
+                true
+        );
+        new WorldRemoveThread(source.getServer()).start();
         return Command.SINGLE_SUCCESS;
     }
 
@@ -43,7 +48,9 @@ public class NewCommand {
             Path levelDir = Path.of(server.getOverworld().getChunkManager().chunkLoadingManager.getSaveDir());
             for (int i = 0; i < server.getPlayerManager().getPlayerList().size(); i++) {
                 ServerPlayerEntity player = server.getPlayerManager().getPlayerList().get(i);
-                player.networkHandler.disconnect(Text.literal("Creating new world. Please rejoin."));
+                player.networkHandler.disconnect(
+                        Text.literal("Creating new world. Please rejoin.").formatted(Formatting.YELLOW)
+                );
             }
             ForceItemChallenge.LOGGER.info("Stopping server...");
             server.stop(true);

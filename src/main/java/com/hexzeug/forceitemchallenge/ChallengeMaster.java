@@ -43,12 +43,16 @@ public class ChallengeMaster {
         }
     }
 
-    public void start() {
+    public boolean start() {
+        if (state.running) return false;
         state.running = true;
+        return true;
     }
 
-    public void pause() {
+    public boolean pause() {
+        if (!state.running) return false;
         state.running = false;
+        return true;
     }
 
     public boolean setDuration(long duration) {

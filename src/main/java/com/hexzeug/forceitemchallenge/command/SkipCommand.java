@@ -16,14 +16,14 @@ public class SkipCommand {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(
                 literal("skip")
-                        .requires((source) -> source.hasPermissionLevel(2))
-                        .executes((context) -> execute(
+                        .requires(source -> source.hasPermissionLevel(2))
+                        .executes(context -> execute(
                                 context.getSource(),
                                 context.getSource().getPlayerOrThrow()
                         ))
                         .then(
                                 argument("players", EntityArgumentType.players())
-                                        .executes((context) -> execute(
+                                        .executes(context -> execute(
                                                 context.getSource(),
                                                 EntityArgumentType.getPlayers(context, "players")
                                         ))
@@ -34,7 +34,7 @@ public class SkipCommand {
     public static int execute(ServerCommandSource source, ServerPlayerEntity player) {
         Challenge.ofPlayer(player).nextChallenge(false);
         source.sendFeedback(
-                () -> Text.literal("Skipped your challenge"),
+                () -> Text.literal("Skipped challenge"),
                 true
         );
         return 1;
