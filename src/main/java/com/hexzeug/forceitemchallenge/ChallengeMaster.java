@@ -1,19 +1,36 @@
 package com.hexzeug.forceitemchallenge;
 
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributeModifier;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.player.PlayerPosition;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.GameMode;
+
+import java.util.*;
 
 public class ChallengeMaster {
     private static ChallengeMaster instance;
     private final MinecraftServer server;
     private final ForceItemState state;
+    private final Map<UUID, FreezeState> freezeStates;
+    public static final Identifier FREEZE_MODIFIER_ID =
+            Identifier.of(ForceItemChallenge.MOD_NAMESPACE, "freeze");
 
     private ChallengeMaster(MinecraftServer server) {
         this.server = server;
         this.state = ForceItemState.getState(server);
+        this.freezeStates = new HashMap<>();
     }
 
     public static ChallengeMaster ofServer(MinecraftServer server) {
@@ -24,23 +41,119 @@ public class ChallengeMaster {
     }
 
     public void tick() {
-        long time = server.getOverworld().getTime();
-        if (state.running) {
-            server.getTickManager().setFrozen(false);
-            if (time < state.duration) {
-                if (time % 20 == 0) sendTimer();
-                server.getPlayerManager().getPlayerList().forEach(player -> {
-                    Challenge challenge = Challenge.ofPlayer(player);
-                    if (player.getInventory().contains(challenge::isChallenge)) {
-                        challenge.nextChallenge(true);
-                    }
-                });
-            }
-        } else {
-            server.getTickManager().setFrozen(true);
-            if (server.getTicks() % 20 == 0) sendTimer();
-            //TODO: freeze players
+        server.getPlayerManager().getPlayerList().forEach(this::tickPlayer);
+
+        if (server.getTickManager().isFrozen() == state.running) {
+            server.getTickManager().setFrozen(!state.running);
         }
+        if (state.running
+                ? server.getOverworld().getTime() % 20 == 0
+                : server.getTicks() % 20 == 0
+        ) {
+            sendTimer();
+        }
+    }
+
+    private void tickPlayer(ServerPlayerEntity player) {
+        tickPlayerFreezing(player);
+
+        Challenge challenge = Challenge.ofPlayer(player);
+        if (state.running
+                && server.getOverworld().getTime() < state.duration
+                && player.getInventory().contains(challenge::isChallenge)
+        ) {
+            challenge.nextChallenge(true);
+        }
+    }
+
+    private void tickPlayerFreezing(ServerPlayerEntity player) {
+        if (!state.running) { // then freeze
+            boolean frozen = freezeStates.containsKey(player.getUuid());
+            FreezeState freezeState = freezeStates.computeIfAbsent(
+                    player.getUuid(),
+                    (uuid) -> FreezeState.captureFromPlayer(player)
+            );
+
+            // freeze location
+            if (player.getVehicle() != null) {
+                player.dismountVehicle();
+            }
+            PlayerPosition teleportPosition = new PlayerPosition(
+                    freezeState.position().position(),
+                    Vec3d.ZERO,
+                    freezeState.position().yaw(),
+                    freezeState.position().pitch()
+            );
+            if (!PlayerPosition.fromEntity(player).equals(teleportPosition)) {
+                player.networkHandler.requestTeleport(teleportPosition, Collections.emptySet());
+            }
+
+            // freeze interaction
+            if (!frozen) player.changeGameMode(GameMode.ADVENTURE);
+
+            // freeze damage
+            if (!frozen) player.setStatusEffect(new StatusEffectInstance(
+                    StatusEffects.RESISTANCE,
+                    StatusEffectInstance.INFINITE,
+                    StatusEffectInstance.MAX_AMPLIFIER,
+                    false,
+                    false
+            ), null);
+
+            // freeze modifiers
+            EntityAttributeInstance gravity =
+                    Objects.requireNonNull(player.getAttributeInstance(EntityAttributes.GRAVITY));
+            EntityAttributeInstance oxygen =
+                    Objects.requireNonNull(player.getAttributeInstance(EntityAttributes.OXYGEN_BONUS));
+            if (!gravity.hasModifier(FREEZE_MODIFIER_ID)) {
+                gravity.addPersistentModifier(new EntityAttributeModifier(
+                        FREEZE_MODIFIER_ID,
+                        -1,
+                        EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
+                ));
+            }
+            if (!oxygen.hasModifier(FREEZE_MODIFIER_ID)) {
+                oxygen.addPersistentModifier(new EntityAttributeModifier(
+                        FREEZE_MODIFIER_ID,
+                        Double.POSITIVE_INFINITY,
+                        EntityAttributeModifier.Operation.ADD_VALUE
+                ));
+            }
+        } else if (freezeStates.containsKey(player.getUuid())) { // then unfreeze
+            // unfreeze location
+            FreezeState freezeState = freezeStates.remove(player.getUuid());
+            if (freezeState.vehicle() == null) {
+                player.networkHandler.requestTeleport(freezeState.position(), Collections.emptySet());
+            } else {
+                player.startRiding(freezeState.vehicle(), true);
+            }
+
+            // unfreeze interaction
+            player.changeGameMode(GameMode.SURVIVAL);
+
+            // unfreeze damage
+            if (freezeState.resistance() == null) {
+                player.removeStatusEffect(StatusEffects.RESISTANCE);
+            } else {
+                player.setStatusEffect(freezeState.resistance(), null);
+            }
+
+            // unfreeze modifiers
+            EntityAttributeInstance gravity =
+                    Objects.requireNonNull(player.getAttributeInstance(EntityAttributes.GRAVITY));
+            EntityAttributeInstance oxygen =
+                    Objects.requireNonNull(player.getAttributeInstance(EntityAttributes.OXYGEN_BONUS));
+            gravity.removeModifier(FREEZE_MODIFIER_ID);
+            oxygen.removeModifier(FREEZE_MODIFIER_ID);
+        }
+    }
+
+    private void sendTimer() {
+        Text timerText = new Timer(state.duration - server.getOverworld().getTime())
+                .toFormattedText(Formatting.GOLD, Formatting.RED, Formatting.BOLD);
+        server.getPlayerManager().getPlayerList().forEach(player ->
+                player.sendMessageToClient(timerText, true)
+        );
     }
 
     public boolean start() {
@@ -63,14 +176,6 @@ public class ChallengeMaster {
 
     public long getDuration() {
         return state.duration;
-    }
-
-    private void sendTimer() {
-        Text timerText = new Timer(state.duration - server.getOverworld().getTime())
-                .toFormattedText(Formatting.GOLD, Formatting.RED, Formatting.BOLD);
-        server.getPlayerManager().getPlayerList().forEach(player ->
-                player.sendMessageToClient(timerText, true)
-        );
     }
 
     public static class Timer {
@@ -117,6 +222,16 @@ public class ChallengeMaster {
                             .formatted(number)
                     )
                     .formatted(global);
+        }
+    }
+
+    public record FreezeState(PlayerPosition position, Entity vehicle, StatusEffectInstance resistance) {
+        public static FreezeState captureFromPlayer(ServerPlayerEntity player) {
+            return new FreezeState(
+                    PlayerPosition.fromEntity(player),
+                    player.getVehicle(),
+                    player.getStatusEffect(StatusEffects.RESISTANCE)
+            );
         }
     }
 }
