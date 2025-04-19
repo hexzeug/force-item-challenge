@@ -9,6 +9,8 @@ import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerPosition;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
@@ -63,6 +65,15 @@ public class ChallengeMaster {
                 && player.getInventory().contains(challenge::isChallenge)
         ) {
             challenge.nextChallenge(true);
+        }
+
+        if (server.getOverworld().getTime() == state.duration) {
+            player.playSoundToPlayer(
+                    SoundEvents.ENTITY_WITHER_SPAWN,
+                    SoundCategory.MASTER,
+                    100,
+                    1.0f
+            );
         }
     }
 

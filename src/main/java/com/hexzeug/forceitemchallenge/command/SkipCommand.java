@@ -3,6 +3,7 @@ package com.hexzeug.forceitemchallenge.command;
 import com.hexzeug.forceitemchallenge.Challenge;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.command.argument.*;
+import net.minecraft.item.ItemStack;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -32,9 +33,10 @@ public class SkipCommand {
     }
 
     public static int execute(ServerCommandSource source, ServerPlayerEntity player) {
+        ItemStack oldChallenge = Challenge.ofPlayer(player).getChallenge();
         Challenge.ofPlayer(player).nextChallenge(false);
         source.sendFeedback(
-                () -> Text.literal("Skipped challenge"),
+                () -> Text.literal("Skipped challenge ").append(oldChallenge.toHoverableText()),
                 true
         );
         return 1;
