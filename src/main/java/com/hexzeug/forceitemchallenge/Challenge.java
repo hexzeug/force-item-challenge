@@ -1,5 +1,8 @@
 package com.hexzeug.forceitemchallenge;
 
+import com.hexzeug.forceitemchallenge.persistence.ForceItemChallengeState;
+import com.hexzeug.forceitemchallenge.persistence.HistoryEntry;
+import com.hexzeug.forceitemchallenge.persistence.PlayerState;
 import net.minecraft.entity.boss.BossBar;
 import net.minecraft.entity.boss.ServerBossBar;
 import net.minecraft.item.ItemStack;
@@ -20,8 +23,8 @@ public class Challenge {
     private static final Map<ServerPlayerEntity, Challenge> challengeMap = new WeakHashMap<>();
     private final ServerPlayerEntity player;
     private final MinecraftServer server;
-    private final ForceItemState forceItemState;
-    private final ForceItemState.PlayerData playerData;
+    private final ForceItemChallengeState forceItemChallengeState;
+    private final PlayerState playerState;
     private final Random random;
     private final ServerBossBar displayBossBar;
 
@@ -29,18 +32,18 @@ public class Challenge {
     private Challenge(ServerPlayerEntity player) {
         this.player = player;
         this.server = Objects.requireNonNull(player.getServer());
-        this.forceItemState = ForceItemState.getState(server);
-        this.playerData = forceItemState.getPlayerData(player);
+        this.forceItemChallengeState = ForceItemChallengeState.ofServer(server);
+        this.playerState = forceItemChallengeState.getOrCreatePlayerState(player.getUuid());
         this.random = server.getOverworld().getOrCreateRandom(Identifier.of(
                 ForceItemChallenge.MOD_NAMESPACE,
                 "challenge/" + player.getUuidAsString()
         ));
         this.displayBossBar = new ServerBossBar(
-                playerData.getChallenge().getName(),
+                playerState.getChallenge().orElse(ItemStack.EMPTY).getName(),
                 BossBar.Color.WHITE,
                 BossBar.Style.PROGRESS
         );
-        displayBossBar.setVisible(!playerData.getChallenge().isEmpty());
+        displayBossBar.setVisible(playerState.getChallenge().isPresent());
         displayBossBar.addPlayer(player);
     }
 
@@ -54,16 +57,19 @@ public class Challenge {
                     Text.empty()
                             .append(player.getName())
                             .append(Text.literal(" completed "))
-                            .append(playerData.getChallenge().toHoverableText()),
+                            .append(playerState.getChallenge().orElse(ItemStack.EMPTY).toHoverableText()),
                     false
             );
-            playerData.markComplete();
             player.playSoundToPlayer(
                     SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP,
                     SoundCategory.MASTER,
                     100,
                     1.0f
             );
+        }
+
+        if (playerState.getChallenge().isPresent()) {
+            playerState.addHistoryEntry(new HistoryEntry(playerState.getChallenge().get(), markComplete ? HistoryEntry.Type.COMPLETED : HistoryEntry.Type.SKIPPED));
         }
 
         // TODO: real challenge generation
@@ -75,16 +81,16 @@ public class Challenge {
 
     public void setChallenge(ItemStack challenge) {
         if (challenge == null) challenge = ItemStack.EMPTY;
-        playerData.setChallenge(challenge);
+        playerState.setChallenge(challenge);
         displayBossBar.setVisible(!challenge.isEmpty());
         displayBossBar.setName(challenge.getName());
     }
 
     public boolean isChallenge(ItemStack challenge) {
-        return ItemStack.areItemsAndComponentsEqual(playerData.getChallenge(), challenge);
+        return ItemStack.areItemsAndComponentsEqual(playerState.getChallenge().orElse(ItemStack.EMPTY), challenge);
     }
 
     public ItemStack getChallenge() {
-        return playerData.getChallenge();
+        return playerState.getChallenge().orElse(ItemStack.EMPTY);
     }
 }

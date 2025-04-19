@@ -1,5 +1,6 @@
 package com.hexzeug.forceitemchallenge;
 
+import com.hexzeug.forceitemchallenge.persistence.ForceItemChallengeState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributeModifier;
@@ -24,14 +25,14 @@ import java.util.*;
 public class ChallengeMaster {
     private static ChallengeMaster instance;
     private final MinecraftServer server;
-    private final ForceItemState state;
+    private final ForceItemChallengeState state;
     private final Map<UUID, FreezeState> freezeStates;
     public static final Identifier FREEZE_MODIFIER_ID =
             Identifier.of(ForceItemChallenge.MOD_NAMESPACE, "freeze");
 
     private ChallengeMaster(MinecraftServer server) {
         this.server = server;
-        this.state = ForceItemState.getState(server);
+        this.state = ForceItemChallengeState.ofServer(server);
         this.freezeStates = new HashMap<>();
     }
 
@@ -45,10 +46,10 @@ public class ChallengeMaster {
     public void tick() {
         server.getPlayerManager().getPlayerList().forEach(this::tickPlayer);
 
-        if (server.getTickManager().isFrozen() == state.running) {
-            server.getTickManager().setFrozen(!state.running);
+        if (server.getTickManager().isFrozen() == state.isRunning()) {
+            server.getTickManager().setFrozen(!state.isRunning());
         }
-        if (state.running
+        if (state.isRunning()
                 ? server.getOverworld().getTime() % 20 == 0
                 : server.getTicks() % 20 == 0
         ) {
@@ -60,14 +61,14 @@ public class ChallengeMaster {
         tickPlayerFreezing(player);
 
         Challenge challenge = Challenge.ofPlayer(player);
-        if (state.running
-                && server.getOverworld().getTime() < state.duration
+        if (state.isRunning()
+                && server.getOverworld().getTime() < state.getDuration()
                 && player.getInventory().contains(challenge::isChallenge)
         ) {
             challenge.nextChallenge(true);
         }
 
-        if (server.getOverworld().getTime() == state.duration) {
+        if (server.getOverworld().getTime() == state.getDuration()) {
             player.playSoundToPlayer(
                     SoundEvents.ENTITY_WITHER_SPAWN,
                     SoundCategory.MASTER,
@@ -78,7 +79,7 @@ public class ChallengeMaster {
     }
 
     private void tickPlayerFreezing(ServerPlayerEntity player) {
-        if (!state.running) { // then freeze
+        if (!state.isRunning()) { // then freeze
             boolean frozen = freezeStates.containsKey(player.getUuid());
             FreezeState freezeState = freezeStates.computeIfAbsent(
                     player.getUuid(),
@@ -160,7 +161,7 @@ public class ChallengeMaster {
     }
 
     private void sendTimer() {
-        Text timerText = new Timer(state.duration - server.getOverworld().getTime())
+        Text timerText = new Timer(state.getDuration() - server.getOverworld().getTime())
                 .toFormattedText(Formatting.GOLD, Formatting.RED, Formatting.BOLD);
         server.getPlayerManager().getPlayerList().forEach(player ->
                 player.sendMessageToClient(timerText, true)
@@ -168,25 +169,25 @@ public class ChallengeMaster {
     }
 
     public boolean start() {
-        if (state.running) return false;
-        state.running = true;
+        if (state.isRunning()) return false;
+        state.setRunning(true);
         return true;
     }
 
     public boolean pause() {
-        if (!state.running) return false;
-        state.running = false;
+        if (!state.isRunning()) return false;
+        state.setRunning(false);
         return true;
     }
 
     public boolean setDuration(long duration) {
         if (duration < server.getOverworld().getTime()) return false;
-        state.duration = duration;
+        state.setDuration(duration);
         return true;
     }
 
     public long getDuration() {
-        return state.duration;
+        return state.getDuration();
     }
 
     public static class Timer {
