@@ -1,6 +1,7 @@
 package com.hexzeug.forceitemchallenge.command;
 
-import com.hexzeug.forceitemchallenge.ChallengeMaster;
+import com.hexzeug.forceitemchallenge.display.DisplayTimer;
+import com.hexzeug.forceitemchallenge.persistence.ForceItemChallengeState;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -14,11 +15,11 @@ import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
 public class TimerCommand {
-    public static final SimpleCommandExceptionType SHORT_DURATION =
+    public static final SimpleCommandExceptionType SHORT_DURATION_EXCEPTION =
             new SimpleCommandExceptionType(Text.literal("Timer duration cannot be shorter than current gametime"));
-    public static final SimpleCommandExceptionType ALREADY_RUNNING =
+    public static final SimpleCommandExceptionType ALREADY_RUNNING_EXCEPTION =
             new SimpleCommandExceptionType(Text.literal("Timer is already running"));
-    public static final SimpleCommandExceptionType ALREADY_PAUSED =
+    public static final SimpleCommandExceptionType ALREADY_PAUSED_EXCEPTION =
             new SimpleCommandExceptionType(Text.literal("Timer is already paused"));
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
@@ -59,57 +60,62 @@ public class TimerCommand {
     }
 
     private static int executeStart(ServerCommandSource source) throws CommandSyntaxException {
-        if (ChallengeMaster.ofServer(source.getServer()).start()) {
+        ForceItemChallengeState state = ForceItemChallengeState.ofServer(source.getServer());
+        if (state.isRunning()) {
+            throw ALREADY_RUNNING_EXCEPTION.create();
+        } else {
+            state.setRunning(true);
             source.sendFeedback(() -> Text.literal("Resumed timer"), true);
             return Command.SINGLE_SUCCESS;
-        } else {
-            throw ALREADY_RUNNING.create();
         }
     }
 
     private static int executePause(ServerCommandSource source) throws CommandSyntaxException {
-        if (ChallengeMaster.ofServer(source.getServer()).pause()) {
+        ForceItemChallengeState state = ForceItemChallengeState.ofServer(source.getServer());
+        if (state.isRunning()) {
+            state.setRunning(false);
             source.sendFeedback(() -> Text.literal("Paused timer"), true);
             return Command.SINGLE_SUCCESS;
         } else {
-            throw ALREADY_PAUSED.create();
+            throw ALREADY_PAUSED_EXCEPTION.create();
         }
     }
 
     private static int executeGetTimer(ServerCommandSource source) {
         source.sendFeedback(
                 () -> Text.literal("Current timer is ")
-                        .append(new ChallengeMaster.Timer(source.getServer().getOverworld().getTime()).toText()),
+                        .append(new DisplayTimer(source.getServer().getOverworld().getTime()).toText()),
                 false
         );
         return Command.SINGLE_SUCCESS;
     }
 
     private static int executeGetDuration(ServerCommandSource source) {
-        long duration = ChallengeMaster.ofServer(source.getServer()).getDuration();
+        long duration = ForceItemChallengeState.ofServer(source.getServer()).getDuration();
         source.sendFeedback(
                 () -> Text.literal("Current timer duration is ")
-                        .append(new ChallengeMaster.Timer(duration).toText()),
+                        .append(new DisplayTimer(duration).toText()),
                 false
         );
         return (int) duration;
     }
 
     private static int executeAddDuration(ServerCommandSource source, int ticks) throws CommandSyntaxException {
-        long duration = ChallengeMaster.ofServer(source.getServer()).getDuration();
+        long duration = ForceItemChallengeState.ofServer(source.getServer()).getDuration();
         return executeSetDuration(source, duration + ticks);
     }
 
     private static int executeSetDuration(ServerCommandSource source, long duration) throws CommandSyntaxException {
-        if (ChallengeMaster.ofServer(source.getServer()).setDuration(duration)) {
+        if (duration < source.getServer().getOverworld().getTime()) {
+            throw SHORT_DURATION_EXCEPTION.create();
+        } else {
+            ForceItemChallengeState.ofServer(source.getServer()).setDuration(duration);
             source.sendFeedback(
                     () -> Text.literal("Set timer duration to ")
-                            .append(new ChallengeMaster.Timer(duration).toText()),
+                            .append(new DisplayTimer(duration).toText()),
                     true
             );
             return Command.SINGLE_SUCCESS;
-        } else {
-            throw SHORT_DURATION.create();
         }
     }
 }

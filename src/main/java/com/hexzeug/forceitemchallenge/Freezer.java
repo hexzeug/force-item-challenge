@@ -16,7 +16,7 @@ import net.minecraft.world.GameMode;
 import java.util.*;
 
 public class Freezer {
-    private static final Map<MinecraftServer, Freezer> instances = HashMap.newHashMap(1);
+    private static final Map<MinecraftServer, Freezer> instances = WeakHashMap.newWeakHashMap(1);
     private static final Identifier MODIFIER_ID = Identifier.of(ForceItemChallenge.MOD_NAMESPACE, "freeze");
 
     private final MinecraftServer server;
@@ -31,7 +31,10 @@ public class Freezer {
         return instances.computeIfAbsent(server, Freezer::new);
     }
 
-    public void tick() {
+    public void tick(boolean shouldBeFrozen) {
+        if (server.getTickManager().isFrozen() != shouldBeFrozen) {
+            server.getTickManager().setFrozen(shouldBeFrozen);
+        }
         server.getPlayerManager().getPlayerList().forEach(this::tickPlayer);
     }
 
