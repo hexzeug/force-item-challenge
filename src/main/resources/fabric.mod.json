@@ -3,13 +3,13 @@
 	"id": "force-item-challenge",
 	"version": "${version}",
 	"name": "Force Item Challenge",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Vanilla survival challenge to collect as many items as possible in a randomly determined given order.",
 	"authors": [
-		"Me!"
+		"hexzeug"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/hexzeug/force-item-challenge#readme",
+		"sources": "https://github.com/hexzeug/force-item-challenge"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/force-item-challenge/icon.png",
@@ -19,15 +19,12 @@
 			"com.hexzeug.forceitemchallenge.ForceItemChallenge"
 		]
 	},
-	"mixins": [
-	],
+	"mixins": [],
 	"depends": {
 		"fabricloader": ">=0.16.12",
 		"minecraft": "~1.21.4",
 		"java": ">=21",
 		"fabric-api": "*"
 	},
-	"suggests": {
-		"another-mod": "*"
-	}
+	"suggests": {}
 }
