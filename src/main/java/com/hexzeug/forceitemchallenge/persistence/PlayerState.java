@@ -30,7 +30,9 @@ public class PlayerState extends PersistentState {
             state.history.add(HistoryEntry.fromNbt(historyNbt.getCompound(i), registries));
         }
 
-        state.challenge = ItemStack.fromNbt(registries, nbt.getCompound(CHALLENGE_TAG)).orElse(null);
+        if (nbt.contains(CHALLENGE_TAG, NbtElement.COMPOUND_TYPE)) {
+            state.challenge = ItemStack.fromNbt(registries, nbt.getCompound(CHALLENGE_TAG)).orElse(null);
+        }
 
         return state;
     }

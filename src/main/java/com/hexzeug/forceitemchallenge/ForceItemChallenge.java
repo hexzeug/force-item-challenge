@@ -1,6 +1,7 @@
 package com.hexzeug.forceitemchallenge;
 
 import com.hexzeug.forceitemchallenge.command.NewCommand;
+import com.hexzeug.forceitemchallenge.command.ResultsCommand;
 import com.hexzeug.forceitemchallenge.command.SkipCommand;
 import com.hexzeug.forceitemchallenge.command.TimerCommand;
 import com.hexzeug.forceitemchallenge.display.DisplayTimer;
@@ -47,6 +48,7 @@ public class ForceItemChallenge implements ModInitializer {
 	) {
 		TimerCommand.register(dispatcher);
 		SkipCommand.register(dispatcher);
+		ResultsCommand.register(dispatcher);
 		if (environment.dedicated) {
 			NewCommand.register(dispatcher);
 		}
